@@ -1,0 +1,62 @@
+# ============================================================
+# イノシシ検知 & SwitchBot 罠作動 設定ファイル
+# ============================================================
+
+camera:
+  # カメラデバイス番号 (0=内蔵カメラ, 1以降=外付け/USBカメラ)
+  # RTSP URL も指定可能: "rtsp://user:pass@192.168.1.100/stream"
+  source: 0
+  # 映像の幅・高さ (0 で元解像度を使用)
+  width: 1280
+  height: 720
+  # フレームレート
+  fps: 30
+
+detection:
+  # YOLOv8 モデルのパス
+  # カスタムモデル: "models/boar_yolov8.pt"
+  # 汎用モデル:    "yolov8n.pt" (初回起動時に自動ダウンロード)
+  model_path: "models/boar_yolov8.pt"
+
+  # 検知信頼度の閾値 (0.0〜1.0)
+  confidence_threshold: 0.6
+
+  # 検知対象クラス名 (カスタムモデルのクラス名に合わせる)
+  # 汎用YOLOv8を使う場合は ["boar"] を適切なクラス名に変更
+  target_classes:
+    - "boar"
+    - "inoshishi"
+    - "wild_boar"
+    - "pig"  # 代替クラス名
+
+  # 連続N フレーム以上検知されたときのみ罠を作動させる (誤検知防止)
+  consecutive_frames_required: 3
+
+  # 罠を作動させた後、再作動を防ぐクールダウン時間 (秒)
+  cooldown_seconds: 300
+
+switchbot:
+  # SwitchBot API v1.1 認証情報
+  # https://github.com/OpenWonderLabs/SwitchBotAPI#authentication
+  token: "YOUR_SWITCHBOT_TOKEN_HERE"
+  secret: "YOUR_SWITCHBOT_SECRET_HERE"
+
+  # 作動させる SwitchBot デバイスID
+  # SwitchBot アプリ → デバイス → デバイス情報 で確認
+  device_id: "YOUR_DEVICE_ID_HERE"
+
+  # SwitchBot に送るコマンド
+  # Bot の場合:  "turnOn" / "turnOff" / "press"
+  # プラグの場合: "turnOn" / "turnOff"
+  command: "press"
+
+  # APIリクエストのタイムアウト (秒)
+  timeout_seconds: 10
+
+logging:
+  # ログファイルパス (空文字列でコンソールのみ出力)
+  file: "logs/boar_detection.log"
+  # ログレベル: DEBUG / INFO / WARNING / ERROR
+  level: "INFO"
+  # 検知時に画像を保存するディレクトリ (空文字列で保存しない)
+  save_detections_dir: "detections"
