@@ -1,62 +1,109 @@
-# ============================================================
-# イノシシ検知 & SwitchBot 罠作動 設定ファイル
-# ============================================================
+# ==============================================================
+#  猪・鹿 自動捕獲システム 設定
+#  ※ 前提はすべてここで変更できます（README の「置いた前提」参照）
+# ==============================================================
 
+# ---------- 罠の種類 ----------
+trap:
+  # enclosure = 囲い罠/大型檻（群れ一括捕獲・推奨）
+  # box       = 箱罠（1〜数頭）
+  # snare     = くくり罠（踏板が主、AIは錯誤捕獲防止に使う）
+  type: "enclosure"
+
+# ---------- カメラ ----------
 camera:
-  # カメラデバイス番号 (0=内蔵カメラ, 1以降=外付け/USBカメラ)
-  # RTSP URL も指定可能: "rtsp://user:pass@192.168.1.100/stream"
-  source: 0
-  # 映像の幅・高さ (0 で元解像度を使用)
+  source: 0                 # 0=USB/内蔵, "rtsp://..." も可
   width: 1280
   height: 720
-  # フレームレート
-  fps: 30
+  fps: 15                   # 省電力優先で低め
 
+  # 罠の内部を表す関心領域（ROI）。この多角形の中にいる頭数を数える。
+  # 画像に対する相対座標 (0.0〜1.0) の頂点列。空なら画面全体。
+  roi_polygon:
+    - [0.15, 0.30]
+    - [0.85, 0.30]
+    - [0.90, 0.95]
+    - [0.10, 0.95]
+
+  # ゲート際ゾーン（ここに獣がいる間は挟み防止のため発報しない）。相対座標の矩形 [x1,y1,x2,y2]。
+  gate_zone: [0.30, 0.78, 0.70, 1.00]
+
+# ---------- 検知（YOLO） ----------
 detection:
-  # YOLOv8 モデルのパス
-  # カスタムモデル: "models/boar_yolov8.pt"
-  # 汎用モデル:    "yolov8n.pt" (初回起動時に自動ダウンロード)
-  model_path: "models/boar_yolov8.pt"
+  model_path: "models/wildlife.pt"   # 現地画像で学習したカスタムモデル
+  confidence_threshold: 0.55
+  imgsz: 640
 
-  # 検知信頼度の閾値 (0.0〜1.0)
-  confidence_threshold: 0.6
-
-  # 検知対象クラス名 (カスタムモデルのクラス名に合わせる)
-  # 汎用YOLOv8を使う場合は ["boar"] を適切なクラス名に変更
+  # 捕獲対象の種別クラス名（モデルのクラス名に合わせる）
   target_classes:
     - "boar"
-    - "inoshishi"
-    - "wild_boar"
-    - "pig"  # 代替クラス名
+    - "deer"
 
-  # 連続N フレーム以上検知されたときのみ罠を作動させる (誤検知防止)
-  consecutive_frames_required: 3
+  # ★錯誤捕獲防止：これらが1体でも写ったら発報を強制ロック
+  forbidden_classes:
+    - "human"
+    - "person"
+    - "bear"
+    - "dog"
+    - "serow"     # カモシカ（特別天然記念物・捕獲違法）
 
-  # 罠を作動させた後、再作動を防ぐクールダウン時間 (秒)
-  cooldown_seconds: 300
+# ---------- 個体追跡・計数 ----------
+tracking:
+  max_disappeared_frames: 15   # 何フレーム見失ったら消失扱いにするか
+  max_match_distance: 120      # 同一個体とみなす重心移動の最大px
+  min_confirm_frames: 3        # 新規IDを「確定個体」とするまでの連続検知数
 
-switchbot:
-  # SwitchBot API v1.1 認証情報
-  # https://github.com/OpenWonderLabs/SwitchBotAPI#authentication
-  token: "YOUR_SWITCHBOT_TOKEN_HERE"
-  secret: "YOUR_SWITCHBOT_SECRET_HERE"
+# ---------- 捕獲判断 ----------
+capture:
+  # 目標頭数：ROI内の対象がこの数に達したら発報候補に。
+  # observe モードで学習した「その群れの期待頭数」があればそちらを優先。
+  target_count: 3
 
-  # 作動させる SwitchBot デバイスID
-  # SwitchBot アプリ → デバイス → デバイス情報 で確認
-  device_id: "YOUR_DEVICE_ID_HERE"
+  # 頭数がこの秒数、増加しなければ「群れが出そろった」とみなす
+  stability_seconds: 6.0
 
-  # SwitchBot に送るコマンド
-  # Bot の場合:  "turnOn" / "turnOff" / "press"
-  # プラグの場合: "turnOn" / "turnOff"
-  command: "press"
+  # 群れがピークから何頭減ったら「帰り始めた」として即発報（取りこぼし防止）
+  leaving_drop_trigger: 1
 
-  # APIリクエストのタイムアウト (秒)
-  timeout_seconds: 10
+  # 発報後クールダウン（秒）。手動リセット前提だが多重発報の保険
+  cooldown_seconds: 600
 
+  # ゲート際ゾーンに獣がいる間は発報しない
+  respect_gate_zone: true
+
+# ---------- 作動装置（SwitchBot） ----------
+actuator:
+  # 優先順位: ble → cloud（bleが使えない/失敗したらcloudに自動フォールバック）
+  prefer: "ble"
+
+  ble:
+    # SwitchBot Bot の BLE MACアドレス（`python -m bleak` 等でスキャン）
+    mac_address: "XX:XX:XX:XX:XX:XX"
+    action: "press"          # press / on / off
+    retries: 3
+
+  cloud:
+    token: "YOUR_SWITCHBOT_TOKEN"
+    secret: "YOUR_SWITCHBOT_SECRET"
+    device_id: "YOUR_DEVICE_ID"
+    command: "press"         # press / turnOn / turnOff
+    timeout_seconds: 10
+
+# ---------- 通報 ----------
+notify:
+  # 捕獲成功・錯誤検知・作動失敗を通知（見回り負担削減／早期対応）
+  line_notify_token: ""      # LINE Notify トークン（空なら無効）
+  webhook_url: ""            # 任意の Webhook（Discord/Slack等）
+  save_snapshot: true        # 通知イベント時に画像保存
+
+# ---------- 省電力 ----------
+power:
+  motion_gated: true         # 動体検知した時だけ YOLO を回す
+  motion_min_area: 1500      # 動きとみなす最小輪郭面積(px)
+  idle_sleep_ms: 200         # 動きが無い間のスリープ
+
+# ---------- ログ・記録 ----------
 logging:
-  # ログファイルパス (空文字列でコンソールのみ出力)
-  file: "logs/boar_detection.log"
-  # ログレベル: DEBUG / INFO / WARNING / ERROR
+  file: "logs/trap.log"
   level: "INFO"
-  # 検知時に画像を保存するディレクトリ (空文字列で保存しない)
-  save_detections_dir: "detections"
+  event_dir: "events"        # 検知・発報イベントの画像/記録の保存先

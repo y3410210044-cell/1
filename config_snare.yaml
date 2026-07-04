@@ -1,0 +1,59 @@
+# ==============================================================
+#  くくり罠 自動作動システム 設定
+#  設計の背景: docs/snare_design.md
+# ==============================================================
+
+snare:
+  # interlock (推奨): 機械式踏板は生かし、AIが確認できた間だけソレノイド解錠
+  # direct          : 餌で静止させ、足先が発火ゾーンに滞在したらソレノイドで直接発火
+  mode: "interlock"
+
+  # ソレノイド駆動 MOSFET/リレーの GPIO ピン (BCM 番号)
+  gpio_pin: 17
+
+  # --- interlock モード ---
+  confirm_frames: 3            # 対象を何フレーム連続確認したら解錠するか
+  unlock_grace_seconds: 8.0    # 1回の確認で解錠を延長する秒数
+  max_unlock_seconds: 30.0     # ウォッチドッグ: これ以上は必ず自動再ロック
+
+  # --- direct モード ---
+  direct_dwell_frames: 4       # 足先が発火ゾーンに何フレーム連続で入ったら発火
+  fire_pulse_seconds: 1.5      # ソレノイド通電パルス長
+
+  # 接近ゾーン: この範囲に対象がいる間だけ解錠を許可 (相対座標 [x1,y1,x2,y2])
+  approach_zone: [0.10, 0.30, 0.90, 1.00]
+
+  # 発火ゾーン: 踏板の真上に相当する狭い範囲 (direct モードで使用)
+  fire_zone: [0.42, 0.60, 0.58, 0.80]
+
+camera:
+  source: 0                    # 0=USB/内蔵, "rtsp://..." も可 (夜間はIRカメラ必須)
+  width: 1280
+  height: 720
+
+detection:
+  model_path: "models/wildlife.pt"
+  confidence_threshold: 0.55
+
+  # 捕獲対象
+  target_classes:
+    - "boar"
+    - "deer"
+
+  # ★1体でも写ったら即再ロックする禁止対象 (錯誤捕獲・事故防止)
+  forbidden_classes:
+    - "human"
+    - "person"
+    - "bear"
+    - "dog"
+    - "serow"    # カモシカ: 特別天然記念物・捕獲違法
+
+notify:
+  line_notify_token: ""        # LINE Notify トークン (空で無効)
+  webhook_url: ""              # Discord/Slack 等の Webhook (空で無効)
+  save_snapshot: true
+
+logging:
+  file: "logs/snare.log"
+  level: "INFO"
+  event_dir: "events"

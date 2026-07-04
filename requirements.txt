@@ -1,5 +1,15 @@
+# --- 検知・画像処理 ---
 ultralytics>=8.0.0
 opencv-python>=4.8.0
-requests>=2.31.0
-pyyaml>=6.0
 numpy>=1.24.0
+
+# --- 設定・HTTP ---
+pyyaml>=6.0
+requests>=2.31.0
+
+# --- SwitchBot BLE ローカル制御（圏外でも発報するための主経路） ---
+# Raspberry Pi では: sudo apt install -y bluez libbluetooth-dev
+bleak>=0.21.0
+
+# --- 任意: GPIO 直結リレー/サーボで罠を落とす場合（Raspberry Pi） ---
+# RPi.GPIO>=0.7.1 ; platform_machine == "armv7l" or platform_machine == "aarch64"
